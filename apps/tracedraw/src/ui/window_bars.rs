@@ -419,22 +419,45 @@ fn page_tabs(app: &mut App, ui: &mut Ui, area: Rect) {
             Tokens::panel_dark()
         };
         let p = ui.painter();
-        p.add(egui::epaint::PathShape::convex_polygon(
-            shape.clone(),
-            fill,
-            Stroke::NONE,
-        ));
-        let edge = Stroke::new(1.0, Tokens::text_dim());
-        p.line_segment([shape[0], shape[3]], edge);
-        p.line_segment([shape[3], shape[2]], edge);
-        p.line_segment([shape[2], shape[1]], edge);
-        p.galley(
+        let slate = crate::theme::is_slate();
+        if slate {
+            // Slate look: rounded tabs, the current page's white and framed
+            // with its name in the accent colour.
+            let card =
+                Rect::from_min_max(r.min + egui::vec2(1.0, 2.0), r.max - egui::vec2(1.0, 1.0));
+            if selected || resp.hovered() {
+                p.rect_filled(card, 3.0, fill);
+            }
+            if selected {
+                p.rect_stroke(
+                    card,
+                    3.0,
+                    Stroke::new(1.0, Tokens::border()),
+                    egui::StrokeKind::Inside,
+                );
+            }
+        } else {
+            p.add(egui::epaint::PathShape::convex_polygon(
+                shape.clone(),
+                fill,
+                Stroke::NONE,
+            ));
+            let edge = Stroke::new(1.0, Tokens::text_dim());
+            p.line_segment([shape[0], shape[3]], edge);
+            p.line_segment([shape[3], shape[2]], edge);
+            p.line_segment([shape[2], shape[1]], edge);
+        }
+        p.galley_with_override_text_color(
             Pos2::new(
                 r.center().x - galley.size().x / 2.0,
                 r.center().y - galley.size().y / 2.0,
             ),
             galley,
-            Tokens::text(),
+            if slate && selected {
+                crate::theme::link_color()
+            } else {
+                Tokens::text()
+            },
         );
         if resp.double_clicked() {
             double = Some(i);
@@ -451,7 +474,7 @@ fn page_tabs(app: &mut App, ui: &mut Ui, area: Rect) {
         if let Some(a) = action {
             apply_page_tab_action(app, a);
         }
-        x += w - slant;
+        x += if slate { w + 2.0 } else { w - slant };
     }
     if let Some(i) = clicked {
         app.goto_page(i);

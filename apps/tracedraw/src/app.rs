@@ -1738,7 +1738,7 @@ impl App {
                 ),
                 (
                     TextStyle::Monospace,
-                    FontId::new(13.0, FontFamily::Monospace),
+                    FontId::new(12.0, FontFamily::Monospace),
                 ),
                 (TextStyle::Heading, theme::bold(17.0)),
             ]

@@ -326,6 +326,9 @@ pub fn tool_color(tool: Tool, plain: Color32) -> Color32 {
 }
 
 pub fn draw(painter: &Painter, r: Rect, tool: Tool, color: Color32) {
+    if crate::ui::slate_icons::tool(painter, r, tool, color) {
+        return;
+    }
     // Stroke weights follow the icon size (1.25 and 0.9 px at 16 px).
     let k = r.width() / 16.0;
     let s = Stroke::new(1.25 * k, color);
@@ -1047,6 +1050,9 @@ pub enum Action {
 const NEW_GREEN: Color32 = Color32::from_rgb(0x1E, 0x9E, 0x3C);
 
 pub fn draw_action(painter: &Painter, r: Rect, a: Action, color: Color32) {
+    if crate::ui::slate_icons::draw(painter, r, &format!("action.{a:?}"), color) {
+        return;
+    }
     let k = r.width() / 16.0;
     let s = Stroke::new(1.25 * k, color);
     let thin = Stroke::new(0.9 * k, color);

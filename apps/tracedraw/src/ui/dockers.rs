@@ -12,7 +12,7 @@ use tracedraw_core::{
 
 /// The vertical strip of docker tabs on the right edge of the window.
 /// Height of a docker's title bar (it runs across the tab column too).
-pub const TITLE_H: f32 = 27.0;
+pub const TITLE_H: f32 = 32.0;
 
 /// The docker tab column: the open dockers as vertical tabs (an icon on
 /// top, the name running downwards), grey, the open one darker, then the
@@ -44,23 +44,62 @@ pub fn tab_strip(app: &mut App, ui: &mut Ui) {
         );
         let w = galley.size().x;
         let gh = galley.size().y;
-        let icon_h = if tab_icon(tab).is_some() { 24.0 } else { 0.0 };
+        let slate_icon = format!("tab.{tab:?}");
+        let has_slate = crate::ui::slate_icons::has(&slate_icon);
+        let icon_h = if has_slate || tab_icon(tab).is_some() {
+            24.0
+        } else {
+            0.0
+        };
         let h = 14.0 + icon_h + w;
         let (r, resp) = ui.allocate_exact_size(egui::vec2(full.width(), h), egui::Sense::click());
         let bg = egui::Rect::from_min_max(egui::pos2(r.min.x + 1.0, r.min.y), r.max);
-        let fill = if active {
+        // Slate look: the open docker's tab white with an accent bar
+        // and accent text, the others on the strip.
+        let hc = crate::theme::theme() == crate::theme::Theme::HighContrast;
+        let fill = if active && hc {
             crate::theme::Tokens::window_border()
+        } else if active {
+            crate::theme::Tokens::field()
         } else if resp.hovered() {
-            crate::theme::Tokens::icon_off()
+            crate::theme::Tokens::tool_hover()
         } else {
-            crate::theme::Tokens::tab()
+            crate::theme::Tokens::tab_strip()
         };
-        ui.painter().rect_filled(bg, 0.0, fill);
-        if let Some(icon) = tab_icon(tab) {
-            let ir = egui::Rect::from_center_size(
-                egui::pos2(bg.center().x, r.min.y + 7.0 + icon_h / 2.0),
-                egui::vec2(16.0, 16.0),
+        let card = bg.shrink2(egui::vec2(2.0, 1.0));
+        ui.painter().rect_filled(card, 3.0, fill);
+        if active && !hc {
+            ui.painter().rect_stroke(
+                card,
+                3.0,
+                egui::Stroke::new(1.0, crate::theme::Tokens::border()),
+                egui::StrokeKind::Inside,
             );
+            ui.painter().rect_filled(
+                egui::Rect::from_min_max(card.min, egui::pos2(card.left() + 2.0, card.bottom())),
+                egui::CornerRadius {
+                    nw: 3,
+                    sw: 3,
+                    ne: 0,
+                    se: 0,
+                },
+                crate::theme::link_color(),
+            );
+        }
+        let ink = if active && !hc {
+            crate::theme::link_color()
+        } else if active {
+            crate::theme::on_highlight()
+        } else {
+            Tokens::text_dim()
+        };
+        let ir = egui::Rect::from_center_size(
+            egui::pos2(bg.center().x, r.min.y + 7.0 + icon_h / 2.0),
+            egui::vec2(16.0, 16.0),
+        );
+        if has_slate {
+            crate::ui::slate_icons::draw(ui.painter(), ir, &slate_icon, ink);
+        } else if let Some(icon) = tab_icon(tab) {
             icon(ui.painter(), ir);
         }
         let text_top = r.min.y + 7.0 + icon_h;
@@ -69,9 +108,7 @@ pub fn tab_strip(app: &mut App, ui: &mut Ui) {
             galley,
             Tokens::text(),
         );
-        if active && crate::theme::theme() == crate::theme::Theme::HighContrast {
-            ts.override_text_color = Some(crate::theme::on_highlight());
-        }
+        ts.override_text_color = Some(ink);
         ts.angle = std::f32::consts::FRAC_PI_2;
         ui.painter().add(ts);
         if resp.clicked() {
@@ -201,13 +238,33 @@ fn tab_icon(tab: DockerTab) -> Option<TabIcon> {
 pub fn dockers(app: &mut App, ui: &mut Ui) {
     let full = ui.max_rect();
     let (bar, _) = ui.allocate_exact_size(egui::vec2(full.width(), TITLE_H), egui::Sense::hover());
+    // Slate look: a light slate title bar with the docker's icon, its
+    // name in semibold and a line under it.
     ui.painter()
-        .rect_filled(bar, 0.0, crate::theme::Tokens::tab_strip());
+        .rect_filled(bar, 0.0, crate::theme::Tokens::panel_dark());
+    ui.painter().hline(
+        bar.x_range(),
+        bar.bottom() - 0.5,
+        egui::Stroke::new(1.0, crate::theme::Tokens::border()),
+    );
+    let key = format!("tab.{:?}", app.docker_tab);
+    let mut text_x = bar.left() + 8.0;
+    if crate::ui::slate_icons::draw(
+        ui.painter(),
+        egui::Rect::from_center_size(
+            egui::pos2(bar.left() + 16.0, bar.center().y),
+            egui::vec2(15.0, 15.0),
+        ),
+        &key,
+        Tokens::text_dim(),
+    ) {
+        text_x = bar.left() + 30.0;
+    }
     ui.painter().text(
-        egui::pos2(bar.left() + 7.0, bar.center().y),
+        egui::pos2(text_x, bar.center().y),
         egui::Align2::LEFT_CENTER,
         tr(app.docker_tab.key()),
-        egui::FontId::proportional(12.0),
+        crate::theme::bold(12.5),
         Tokens::text(),
     );
     let grey = crate::theme::Tokens::text_dim();

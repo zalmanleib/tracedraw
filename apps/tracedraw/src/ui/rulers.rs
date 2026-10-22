@@ -228,6 +228,10 @@ pub fn ruler_drag(app: &mut App, ui: &Ui) -> bool {
 }
 
 fn label_font() -> FontId {
+    if crate::theme::is_slate() {
+        // Slate look: ruler numbers in the number font.
+        return FontId::monospace(LABEL_SIZE - 0.5);
+    }
     FontId::proportional(LABEL_SIZE)
 }
 

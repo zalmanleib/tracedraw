@@ -415,7 +415,22 @@ pub fn button_row(ui: &mut Ui, labels: &[&str], access_keys: bool) -> Option<usi
             };
             let resp = ui
                 .scope(|ui| {
-                    if i == 0 {
+                    if i == 0 && crate::theme::is_slate() {
+                        // Slate look: the default button in the accent
+                        // colour with white text.
+                        let w = &mut ui.visuals_mut().widgets;
+                        for (st, fill) in [
+                            (&mut w.inactive, Tokens::ACCENT),
+                            (&mut w.hovered, Tokens::ACCENT.gamma_multiply(0.85)),
+                            (&mut w.active, Tokens::ACCENT.gamma_multiply(0.7)),
+                        ] {
+                            st.bg_stroke = Stroke::new(1.0, Tokens::ACCENT);
+                            st.weak_bg_fill = fill;
+                            st.bg_fill = fill;
+                            st.fg_stroke.color = Color32::WHITE;
+                            st.corner_radius = CornerRadius::same(4);
+                        }
+                    } else if i == 0 {
                         let w = &mut ui.visuals_mut().widgets;
                         w.inactive.bg_stroke = Stroke::new(1.0, Tokens::ACCENT);
                         w.inactive.weak_bg_fill = crate::theme::Tokens::tool_hover();
@@ -528,11 +543,24 @@ fn message_box_with(
 fn title_bar(ui: &mut Ui, bar: Rect, title: &str, id: &str) -> bool {
     let painter = ui.painter();
     painter.rect_filled(bar, 0.0, crate::theme::Tokens::title_bar());
+    let slate = crate::theme::is_slate();
+    if slate {
+        // Slate look: the title in semibold over a light line.
+        painter.hline(
+            bar.x_range(),
+            bar.bottom() - 0.5,
+            Stroke::new(1.0, crate::theme::Tokens::border()),
+        );
+    }
     painter.text(
         Pos2::new(bar.left() + 12.0, bar.center().y),
         Align2::LEFT_CENTER,
         title,
-        FontId::proportional(TITLE_FONT),
+        if slate {
+            crate::theme::bold(TITLE_FONT)
+        } else {
+            FontId::proportional(TITLE_FONT)
+        },
         crate::theme::Tokens::text(),
     );
     let close = Rect::from_min_max(
@@ -566,7 +594,12 @@ pub fn form_style(ui: &mut Ui) {
         &mut v.widgets.active,
         &mut v.widgets.open,
     ] {
-        w.corner_radius = CornerRadius::ZERO;
+        // The Slate look keeps its rounded corners.
+        w.corner_radius = if crate::theme::is_slate() {
+            CornerRadius::same(4)
+        } else {
+            CornerRadius::ZERO
+        };
         w.expansion = 0.0;
     }
     v.widgets.inactive.bg_stroke = Stroke::new(1.0, crate::theme::Tokens::control_border());

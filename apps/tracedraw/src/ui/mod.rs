@@ -78,6 +78,8 @@ pub mod rulers;
 pub mod save_as;
 pub mod shaping_docker;
 pub mod shelf_docker;
+pub mod slate_icons;
+mod slate_icons_data;
 pub mod status;
 pub mod straighten_dialog;
 pub mod symmetry_bar;
@@ -318,11 +320,11 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
         .frame(
             Frame::new()
                 .fill(Tokens::menu_bar())
-                .inner_margin(egui::Margin::symmetric(0, 1)),
+                .inner_margin(egui::Margin::symmetric(0, 3)),
         )
-        .exact_size(24.0)
+        .exact_size(30.0)
         .resizable(false)
-        .show_separator_line(false)
+        .show_separator_line(true)
         .show(ui, |ui| menus::menu_bar(app, ui));
     // The bars, where the layout puts them (see bars.rs). Outer panels
     // come first: the status bar (at the very bottom, or right under the
@@ -485,7 +487,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
         Panel::right("docker_tabs")
     };
     docker_tabs
-        .exact_size(27.0)
+        .exact_size(32.0)
         .resizable(false)
         .show_separator_line(false)
         .frame(Frame::new().fill(crate::theme::Tokens::tab_strip()))

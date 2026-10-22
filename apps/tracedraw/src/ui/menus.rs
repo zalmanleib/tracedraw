@@ -27,11 +27,22 @@ pub(crate) fn menu_popup_style(style: &mut egui::Style) {
     style.visuals.window_fill = crate::theme::Tokens::menu();
     style.visuals.window_stroke = egui::Stroke::new(1.0, crate::theme::Tokens::window_border());
     style.visuals.menu_corner_radius = egui::CornerRadius::ZERO;
-    style.visuals.popup_shadow = crate::theme::shadow(egui::epaint::Shadow {
-        offset: [2, 2],
-        blur: 4,
-        spread: 0,
-        color: egui::Color32::from_black_alpha(30),
+    style.visuals.popup_shadow = crate::theme::shadow(if crate::theme::is_slate() {
+        // Slate look: a soft drop under the menu, a light frame.
+        style.visuals.window_stroke = egui::Stroke::new(1.0, crate::theme::Tokens::border());
+        egui::epaint::Shadow {
+            offset: [0, 4],
+            blur: 12,
+            spread: 0,
+            color: egui::Color32::from_black_alpha(26),
+        }
+    } else {
+        egui::epaint::Shadow {
+            offset: [2, 2],
+            blur: 4,
+            spread: 0,
+            color: egui::Color32::from_black_alpha(30),
+        }
     });
     style.spacing.menu_margin = egui::Margin {
         left: 0,
@@ -61,10 +72,13 @@ pub(crate) fn body<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
         egui::pos2(rows.left(), rows.top() - 2.0),
         egui::pos2(rows.left() + GUTTER, rows.bottom() + 2.0),
     );
-    ui.painter().set(
-        slot,
-        egui::Shape::rect_filled(gutter, 0.0, crate::theme::Tokens::menu_gutter()),
-    );
+    // The Slate look has no gutter strip.
+    if !crate::theme::is_slate() {
+        ui.painter().set(
+            slot,
+            egui::Shape::rect_filled(gutter, 0.0, crate::theme::Tokens::menu_gutter()),
+        );
+    }
     r
 }
 
@@ -125,7 +139,9 @@ fn menu_row(
     if enabled && resp.hovered() {
         painter.set(slot, highlight(rect));
     }
-    let color = if enabled && resp.hovered() {
+    let color = if enabled && resp.hovered() && crate::theme::is_slate() {
+        egui::Color32::WHITE
+    } else if enabled && resp.hovered() {
         crate::theme::on_highlight()
     } else if enabled {
         crate::theme::Tokens::text()
@@ -169,12 +185,25 @@ fn menu_row(
         color,
     );
     if !shortcut.is_empty() {
+        // Slate look: shortcuts in the number font, dimmed.
+        let (font, col) = if crate::theme::is_slate() {
+            let dim = if enabled && resp.hovered() {
+                egui::Color32::from_rgb(0xDB, 0xE3, 0xFF)
+            } else if enabled {
+                crate::theme::Tokens::text_dim()
+            } else {
+                color
+            };
+            (egui::FontId::monospace(FONT - 2.5), dim)
+        } else {
+            (egui::FontId::proportional(FONT), color)
+        };
         painter.text(
             egui::pos2(rect.right() - SHORTCUT_PAD, rect.center().y),
             egui::Align2::RIGHT_CENTER,
             shortcut,
-            egui::FontId::proportional(FONT),
-            color,
+            font,
+            col,
         );
     }
     if mark == Mark::Submenu {
@@ -198,6 +227,14 @@ fn menu_row(
 
 /// The box behind a hovered row or an open submenu's row.
 fn highlight(rect: egui::Rect) -> egui::Shape {
+    if crate::theme::is_slate() {
+        // Slate look: a solid accent bar, slightly rounded.
+        return egui::Shape::Rect(egui::epaint::RectShape::filled(
+            rect.shrink2(egui::vec2(4.0, 1.0)),
+            3.0,
+            Tokens::ACCENT,
+        ));
+    }
     egui::Shape::Rect(egui::epaint::RectShape::new(
         rect.shrink2(egui::vec2(2.0, 0.0)),
         0.0,
@@ -343,7 +380,9 @@ fn item_text_tip(
         egui::pos2(r.rect.left() + GUTTER / 2.0, r.rect.center().y),
         egui::vec2(16.0, 16.0),
     );
-    let color = if enabled {
+    let color = if enabled && r.hovered() && crate::theme::is_slate() {
+        egui::Color32::WHITE
+    } else if enabled {
         Tokens::icon()
     } else {
         crate::theme::Tokens::menu_text_off()
@@ -1439,10 +1478,25 @@ fn menu_bar_style(style: &mut egui::Style) {
         &mut style.visuals.widgets.active,
         &mut style.visuals.widgets.open,
     ] {
-        w.weak_bg_fill = crate::theme::Tokens::menu_hover();
-        w.bg_fill = crate::theme::Tokens::menu_hover();
-        w.bg_stroke = egui::Stroke::new(1.0, crate::theme::Tokens::menu_hover_line());
-        w.corner_radius = egui::CornerRadius::ZERO;
+        // Slate look: a rounded slate tint, no frame.
+        let slate = crate::theme::theme() != crate::theme::Theme::HighContrast;
+        let fill = if slate {
+            crate::theme::Tokens::tab()
+        } else {
+            crate::theme::Tokens::menu_hover()
+        };
+        w.weak_bg_fill = fill;
+        w.bg_fill = fill;
+        w.bg_stroke = if slate {
+            egui::Stroke::NONE
+        } else {
+            egui::Stroke::new(1.0, crate::theme::Tokens::menu_hover_line())
+        };
+        w.corner_radius = if slate {
+            egui::CornerRadius::same(4)
+        } else {
+            egui::CornerRadius::ZERO
+        };
         w.expansion = 0.0;
         w.fg_stroke.color = crate::theme::on_highlight();
     }
@@ -1471,6 +1525,18 @@ pub fn menu_bar(app: &mut App, ui: &mut Ui) {
         .style(menu_bar_style)
         .config(egui::containers::menu::MenuConfig::new().style(menu_popup_style))
         .ui(ui, |ui| {
+            // Slate look: the application icon and name first.
+            ui.add_space(6.0);
+            let (r, _) = ui.allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::hover());
+            let icon = crate::ui::brand::icon(ui.ctx());
+            crate::ui::brand::paint_icon(ui.painter(), icon.as_ref(), r);
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new("TraceDraw")
+                    .font(crate::theme::bold(BAR_FONT))
+                    .color(crate::theme::Tokens::text()),
+            );
+            ui.add_space(8.0);
             // Each title's access key, for Alt and the letter.
             let mut keys: Vec<char> = Vec::new();
             let mut menu = |ui: &mut Ui, key: &str, f: &mut dyn FnMut(&mut Ui)| -> egui::Response {

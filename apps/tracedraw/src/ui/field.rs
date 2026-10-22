@@ -144,6 +144,7 @@ impl<N: Numeric> Widget for NumField<'_, N> {
         };
         let mut resp = ui.add(
             TextEdit::singleline(&mut buf)
+                .font(crate::theme::number_font())
                 .id(id)
                 .margin(egui::Margin::symmetric(4, 0))
                 .vertical_align(egui::Align::Center)

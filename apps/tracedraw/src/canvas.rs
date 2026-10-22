@@ -422,11 +422,24 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
     // one-pixel grey border (pixel-aligned so it stays crisp).
     let paper = page_screen_rect(app);
     if app.show_page_border {
-        painter.rect_filled(
-            paper.expand(1.0).translate(Tokens::PAGE_SHADOW_OFFSET),
-            0.0,
-            Tokens::page_shadow(),
-        );
+        if crate::theme::is_slate() {
+            // Slate look: a soft shadow below the page.
+            painter.add(
+                egui::epaint::Shadow {
+                    offset: [0, 8],
+                    blur: 22,
+                    spread: 0,
+                    color: Color32::from_black_alpha(48),
+                }
+                .as_shape(paper, 0.0),
+            );
+        } else {
+            painter.rect_filled(
+                paper.expand(1.0).translate(Tokens::PAGE_SHADOW_OFFSET),
+                0.0,
+                Tokens::page_shadow(),
+            );
+        }
     }
     painter.rect_filled(paper, 0.0, Tokens::PAGE);
     if app.show_page_border {

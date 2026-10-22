@@ -9,33 +9,40 @@ use crate::ui::tips::RichTip;
 use egui::{Ui, Vec2};
 use tracedraw_core::{document::ShapeKind, geometry::Rect, Fill};
 
+/// A short slate line between button groups.
 fn vsep(ui: &mut Ui) {
-    ui.add(egui::Separator::default().vertical().spacing(6.0));
+    let h = ui.available_height().min(STD);
+    let (r, _) = ui.allocate_exact_size(Vec2::new(9.0, h), egui::Sense::hover());
+    let x = r.center().x.round() + 0.5;
+    ui.painter().line_segment(
+        [
+            egui::pos2(x, r.center().y - 8.0),
+            egui::pos2(x, r.center().y + 8.0),
+        ],
+        egui::Stroke::new(1.0, Tokens::border()),
+    );
 }
 
-/// Standard toolbar buttons: 32 px square with a 20 px icon.
+/// Standard toolbar buttons: 32 px square with an 18 px icon.
 const STD: f32 = 32.0;
-const STD_ICON: f32 = 20.0;
+const STD_ICON: f32 = 18.0;
 
+/// Slate look: hovered buttons tint light blue, pressed toggles are
+/// white with a grey frame, all with rounded corners.
 fn std_frame(ui: &Ui, rect: egui::Rect, hovered: bool, pressed: bool) {
+    let r = rect.shrink(1.0);
     if pressed {
         ui.painter()
-            .rect_filled(rect, 0.0, crate::theme::Tokens::field());
+            .rect_filled(r, 4.0, crate::theme::Tokens::field());
         ui.painter().rect_stroke(
-            rect.shrink(0.5),
-            0.0,
+            r,
+            4.0,
             egui::Stroke::new(1.0, Tokens::control_border()),
-            egui::StrokeKind::Middle,
+            egui::StrokeKind::Inside,
         );
     } else if hovered {
         ui.painter()
-            .rect_filled(rect, 0.0, crate::theme::Tokens::hovered_row());
-        ui.painter().rect_stroke(
-            rect.shrink(0.5),
-            0.0,
-            egui::Stroke::new(1.0, crate::theme::Tokens::selected_row()),
-            egui::StrokeKind::Middle,
-        );
+            .rect_filled(r, 4.0, crate::theme::Tokens::tool_hover());
     }
 }
 
@@ -61,10 +68,12 @@ fn std_button(
         ui.painter(),
         egui::Rect::from_center_size(rect.center(), Vec2::splat(STD_ICON)),
         action,
-        if enabled {
-            Tokens::icon()
-        } else {
+        if !enabled {
             Tokens::icon_off()
+        } else if pressed {
+            crate::theme::link_color()
+        } else {
+            Tokens::icon()
         },
     );
     resp

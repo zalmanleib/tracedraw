@@ -8,6 +8,11 @@ use std::sync::atomic::{AtomicU8, Ordering};
 /// The interface themes, lightest first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Theme {
+    /// The Slate look (the default): cool light greys, white fields and
+    /// a sapphire accent.
+    SlateLight,
+    /// The Slate look on charcoal panels.
+    SlateDark,
     Light,
     MediumLight,
     MediumDark,
@@ -18,7 +23,9 @@ pub enum Theme {
 }
 
 impl Theme {
-    pub const ALL: [Theme; 5] = [
+    pub const ALL: [Theme; 7] = [
+        Theme::SlateLight,
+        Theme::SlateDark,
         Theme::Light,
         Theme::MediumLight,
         Theme::MediumDark,
@@ -29,6 +36,8 @@ impl Theme {
     /// The name kept in the preferences.
     pub fn id(self) -> &'static str {
         match self {
+            Theme::SlateLight => "slate_light",
+            Theme::SlateDark => "slate_dark",
             Theme::Light => "light",
             Theme::MediumLight => "medium_light",
             Theme::MediumDark => "medium_dark",
@@ -37,17 +46,19 @@ impl Theme {
         }
     }
 
-    /// The theme a preference names; Light for anything else.
+    /// The theme a preference names; Slate Light for anything else.
     pub fn from_id(id: &str) -> Theme {
         Theme::ALL
             .into_iter()
             .find(|t| t.id() == id)
-            .unwrap_or(Theme::Light)
+            .unwrap_or(Theme::SlateLight)
     }
 
     /// The i18n key of its name.
     pub fn key(self) -> &'static str {
         match self {
+            Theme::SlateLight => "options.theme_slate_light",
+            Theme::SlateDark => "options.theme_slate_dark",
             Theme::Light => "options.theme_light",
             Theme::MediumLight => "options.theme_medium_light",
             Theme::MediumDark => "options.theme_medium_dark",
@@ -59,7 +70,7 @@ impl Theme {
     /// Light text on dark panels.
     pub fn is_dark(self) -> bool {
         match self {
-            Theme::MediumDark | Theme::Dark => true,
+            Theme::SlateDark | Theme::MediumDark | Theme::Dark => true,
             Theme::HighContrast => contrast_colors().is_dark(),
             _ => false,
         }
@@ -67,6 +78,8 @@ impl Theme {
 
     fn palette(self) -> &'static Palette {
         match self {
+            Theme::SlateLight => &SLATE_LIGHT,
+            Theme::SlateDark => &SLATE_DARK,
             Theme::Light => &LIGHT,
             Theme::MediumLight => &MEDIUM_LIGHT,
             Theme::MediumDark => &MEDIUM_DARK,
@@ -165,6 +178,11 @@ fn contrast_palette() -> &'static Palette {
 /// The status bar's light / dark button: a light theme goes to Dark, a
 /// dark one to Light.
 pub fn toggled(t: Theme) -> Theme {
+    match t {
+        Theme::SlateLight => return Theme::SlateDark,
+        Theme::SlateDark => return Theme::SlateLight,
+        _ => {}
+    }
     if t.is_dark() {
         Theme::Light
     } else {
@@ -202,12 +220,26 @@ pub fn shadow(s: egui::epaint::Shadow) -> egui::epaint::Shadow {
     }
 }
 
+/// The Slate look is on (Slate Light or Slate Dark).
+pub fn is_slate() -> bool {
+    matches!(theme(), Theme::SlateLight | Theme::SlateDark)
+}
+
+/// The font of numbers in fields: JetBrains Mono in the Slate look.
+pub fn number_font() -> egui::TextStyle {
+    if is_slate() {
+        egui::TextStyle::Monospace
+    } else {
+        egui::TextStyle::Body
+    }
+}
+
 /// The theme in use.
 pub fn theme() -> Theme {
     Theme::ALL
         .get(CURRENT.load(Ordering::Relaxed) as usize)
         .copied()
-        .unwrap_or(Theme::Light)
+        .unwrap_or(Theme::SlateLight)
 }
 
 const fn rgb(v: u32) -> Color32 {
@@ -253,6 +285,85 @@ struct Palette {
     /// The desktop around the page, unless the user picked a colour.
     desktop: Color32,
 }
+
+/// Slate Light: slate greys (#F8FAFC panels, #CBD5E1 lines, #334155
+/// text) around a #E2E8F0 desktop.
+const SLATE_LIGHT: Palette = Palette {
+    panel: rgb(0xF8FAFC),
+    menu_bar: rgb(0xF8FAFC),
+    panel_dark: rgb(0xF1F5F9),
+    border: rgb(0xCBD5E1),
+    icon_off: rgb(0x94A3B8),
+    text: rgb(0x1E293B),
+    text_dim: rgb(0x64748B),
+    page_shadow: rgb(0xB8C2D0),
+    page_border: rgb(0xCBD5E1),
+    ruler_bg: rgb(0xF1F5F9),
+    tool_active: rgb(0xDBEAFE),
+    tool_hover: rgb(0xE0F2FE),
+    icon: rgb(0x334155),
+    button: rgb(0xFFFFFF),
+    control_border: rgb(0xCBD5E1),
+    slider_rail: rgb(0xCBD5E1),
+    field: rgb(0xFFFFFF),
+    menu: rgb(0xFFFFFF),
+    menu_gutter: rgb(0xF8FAFC),
+    menu_hover: rgb(0xE0F2FE),
+    menu_hover_line: rgb(0x93C5FD),
+    menu_text_off: rgb(0x94A3B8),
+    title_bar: rgb(0xF1F5F9),
+    window_border: rgb(0x94A3B8),
+    selected_row: rgb(0xDBEAFE),
+    hovered_row: rgb(0xF1F5F9),
+    selected_row_line: rgb(0x93C5FD),
+    control_fill: rgb(0xF1F5F9),
+    tab_strip: rgb(0xEDF2F7),
+    tab: rgb(0xE2E8F0),
+    tab_active: rgb(0xF8FAFC),
+    ruler_tick: rgb(0x64748B),
+    ruler_label: rgb(0x64748B),
+    ruler_marker: rgb(0x3B82F6),
+    desktop: rgb(0xE2E8F0),
+};
+
+/// Slate Dark: charcoal panels (#2B2D31) on a #1E1F22 frame.
+const SLATE_DARK: Palette = Palette {
+    panel: rgb(0x2B2D31),
+    menu_bar: rgb(0x1E1F22),
+    panel_dark: rgb(0x232428),
+    border: rgb(0x3F4147),
+    icon_off: rgb(0x5C5F66),
+    text: rgb(0xE3E5E8),
+    text_dim: rgb(0xA1A5AB),
+    page_shadow: rgb(0x111214),
+    page_border: rgb(0x111214),
+    ruler_bg: rgb(0x232428),
+    tool_active: rgb(0x1E3A5F),
+    tool_hover: rgb(0x35373C),
+    icon: rgb(0xD4D7DC),
+    button: rgb(0x383A40),
+    control_border: rgb(0x4E5058),
+    slider_rail: rgb(0x4E5058),
+    field: rgb(0x1E1F22),
+    menu: rgb(0x2B2D31),
+    menu_gutter: rgb(0x26282C),
+    menu_hover: rgb(0x1E3A5F),
+    menu_hover_line: rgb(0x3B82F6),
+    menu_text_off: rgb(0x6D7178),
+    title_bar: rgb(0x1E1F22),
+    window_border: rgb(0x111214),
+    selected_row: rgb(0x1E3A5F),
+    hovered_row: rgb(0x35373C),
+    selected_row_line: rgb(0x3B82F6),
+    control_fill: rgb(0x383A40),
+    tab_strip: rgb(0x1E1F22),
+    tab: rgb(0x2B2D31),
+    tab_active: rgb(0x383A40),
+    ruler_tick: rgb(0x80848E),
+    ruler_label: rgb(0xA1A5AB),
+    ruler_marker: rgb(0x38BDF8),
+    desktop: rgb(0x141517),
+};
 
 const LIGHT: Palette = Palette {
     panel: rgb(0xF4F4F4),
@@ -480,12 +591,12 @@ tokens!(
 
 impl Tokens {
     /// Accents, the page and the selection stay the same in every theme.
-    pub const ACCENT: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
+    pub const ACCENT: Color32 = Color32::from_rgb(0x1D, 0x5F, 0xD1);
     pub const PAGE: Color32 = Color32::WHITE;
     /// Screen offset of the page shadow, pixels.
     pub const PAGE_SHADOW_OFFSET: egui::Vec2 = egui::vec2(6.0, 4.0);
     pub const HANDLE: Color32 = Color32::from_rgb(0x1E, 0x1E, 0x1E);
-    pub const SELECTION: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
+    pub const SELECTION: Color32 = Color32::from_rgb(0x1D, 0x5F, 0xD1);
     /// The outline that shows where a dragged selection would go.
     pub const DRAG_OUTLINE: Color32 = Color32::from_rgb(0x1E, 0x64, 0xFF);
 
@@ -563,20 +674,26 @@ pub fn visuals() -> Visuals {
         v.hyperlink_color = col(c.hot_light);
         v.warn_fg_color = col(c.hot_light);
     }
-    v.widgets.noninteractive.corner_radius = 2.0.into();
-    v.widgets.inactive.corner_radius = 2.0.into();
-    v.widgets.hovered.corner_radius = 2.0.into();
-    v.widgets.active.corner_radius = 2.0.into();
-    v.window_corner_radius = 2.0.into();
-    v.menu_corner_radius = 2.0.into();
+    // The Slate look rounds controls a little more.
+    let r: f32 = if is_slate() { 4.0 } else { 2.0 };
+    v.widgets.noninteractive.corner_radius = r.into();
+    v.widgets.inactive.corner_radius = r.into();
+    v.widgets.hovered.corner_radius = r.into();
+    v.widgets.active.corner_radius = r.into();
+    v.widgets.open.corner_radius = r.into();
+    v.window_corner_radius = (r + 2.0).into();
+    v.menu_corner_radius = r.into();
     v
 }
 
 /// The interface font, bundled (SIL Open Font License, see
 /// `assets/fonts/Selawik-OFL.txt`): regular for text, bold for headings and
 /// emphasis. Scripts it lacks fall back to egui's fonts and the system's.
-const UI_REGULAR: &[u8] = include_bytes!("../assets/fonts/Selawik-Regular.ttf");
-const UI_BOLD: &[u8] = include_bytes!("../assets/fonts/Selawik-Bold.ttf");
+const UI_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
+const UI_BOLD: &[u8] = include_bytes!("../assets/fonts/Inter-SemiBold.ttf");
+/// Numbers in fields and on rulers (SIL Open Font License, see
+/// `assets/fonts/JetBrainsMono-OFL.txt`).
+const UI_MONO: &[u8] = include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf");
 
 /// The font family name of the bold interface font.
 pub const BOLD: &str = "ui-bold";
@@ -622,14 +739,24 @@ pub fn font_definitions() -> egui::FontDefinitions {
 /// (Latin, Greek, Cyrillic) and egui's own, ready at once.
 pub fn bundled_font_definitions() -> egui::FontDefinitions {
     let mut defs = egui::FontDefinitions::default();
+    // Inter runs about 7 % wider than the interface was laid out for:
+    // drawn a little smaller, labels keep fitting their rows.
+    let narrow = |bytes: &'static [u8]| {
+        std::sync::Arc::new(egui::FontData::from_static(bytes).tweak(egui::FontTweak {
+            scale: 0.93,
+            ..Default::default()
+        }))
+    };
+    defs.font_data
+        .insert("ui-regular".into(), narrow(UI_REGULAR));
+    defs.font_data.insert("ui-bold".into(), narrow(UI_BOLD));
     defs.font_data.insert(
-        "ui-regular".into(),
-        std::sync::Arc::new(egui::FontData::from_static(UI_REGULAR)),
+        "ui-mono".into(),
+        std::sync::Arc::new(egui::FontData::from_static(UI_MONO)),
     );
-    defs.font_data.insert(
-        "ui-bold".into(),
-        std::sync::Arc::new(egui::FontData::from_static(UI_BOLD)),
-    );
+    if let Some(list) = defs.families.get_mut(&egui::FontFamily::Monospace) {
+        list.insert(0, "ui-mono".into());
+    }
     let defaults = defs
         .families
         .get(&egui::FontFamily::Proportional)
@@ -666,6 +793,15 @@ pub fn ui_context() -> egui::Context {
 fn fallback_fonts(defs: &mut egui::FontDefinitions) -> Vec<String> {
     // Per script, the families to try in order; the first installed one wins.
     let groups: &[&[&str]] = &[
+        // Hebrew (also in many Latin system fonts).
+        &[
+            "Noto Sans Hebrew",
+            "Segoe UI",
+            "Arial",
+            "David",
+            "DejaVu Sans",
+            "Arial Hebrew",
+        ],
         // Arabic (also covered by many Latin system fonts).
         &[
             "Noto Sans Arabic",
@@ -754,8 +890,10 @@ mod theme_tests {
             assert!(lum(p.text).abs_diff(lum(p.panel)) > 300, "{t:?}");
             assert_eq!(t.is_dark(), lum(p.text) > lum(p.panel), "{t:?}");
         }
-        assert_eq!(Theme::from_id(""), Theme::Light);
-        assert_eq!(Theme::from_id("purple"), Theme::Light);
+        assert_eq!(Theme::from_id(""), Theme::SlateLight);
+        assert_eq!(Theme::from_id("purple"), Theme::SlateLight);
+        assert_eq!(toggled(Theme::SlateLight), Theme::SlateDark);
+        assert_eq!(toggled(Theme::SlateDark), Theme::SlateLight);
         assert_eq!(toggled(Theme::MediumLight), Theme::Dark);
         assert_eq!(toggled(Theme::MediumDark), Theme::Light);
     }

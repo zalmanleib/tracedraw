@@ -130,28 +130,36 @@ fn tools(app: &mut App, ui: &mut Ui, dock: crate::ui::bars::Dock) {
         } else {
             Tokens::panel()
         };
-        ui.painter().rect_filled(rect, 0.0, bg);
+        // Slate look: rounded buttons, the active one framed with its
+        // icon in the accent colour.
+        let rounding = 4.0;
+        ui.painter().rect_filled(rect.shrink(1.0), rounding, bg);
         if active {
             ui.painter().rect_stroke(
-                rect,
-                0.0,
-                Stroke::new(1.0, Tokens::control_border()),
+                rect.shrink(1.0),
+                rounding,
+                Stroke::new(1.0, Tokens::window_border()),
                 egui::StrokeKind::Inside,
             );
         }
-        let icon_rect = Rect::from_center_size(rect.center(), Vec2::splat(22.0));
+        let icon_rect = Rect::from_center_size(rect.center(), Vec2::splat(18.0));
+        let plain = if active {
+            crate::theme::link_color()
+        } else {
+            Tokens::icon()
+        };
         icons::draw(
             ui.painter(),
             icon_rect,
             shown,
-            icons::tool_color(shown, Tokens::icon()),
+            icons::tool_color(shown, plain),
         );
         if has_flyout {
             // The flyout arrow: a small triangle at the bottom-right.
-            let p = rect.right_bottom() - Vec2::new(2.0, 2.0);
+            let p = rect.right_bottom() - Vec2::new(3.0, 3.0);
             ui.painter().add(egui::epaint::PathShape::convex_polygon(
-                vec![p, p - Vec2::new(5.0, 0.0), p - Vec2::new(0.0, 5.0)],
-                Tokens::icon(),
+                vec![p, p - Vec2::new(4.5, 0.0), p - Vec2::new(0.0, 4.5)],
+                Tokens::text_dim(),
                 Stroke::NONE,
             ));
         }

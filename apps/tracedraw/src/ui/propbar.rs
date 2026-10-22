@@ -170,6 +170,9 @@ fn q(r: Rect, x: f32, y: f32) -> Pos2 {
 }
 
 pub fn draw_pic(painter: &Painter, r: Rect, pic: Pic, color: Color32) {
+    if crate::ui::slate_icons::draw(painter, r, &format!("pic.{pic:?}"), color) {
+        return;
+    }
     let k = r.width() / 16.0;
     let s = Stroke::new(1.1 * k, color);
     let thin = Stroke::new(0.85 * k, color);

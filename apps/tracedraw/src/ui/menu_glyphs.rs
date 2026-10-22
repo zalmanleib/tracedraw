@@ -268,6 +268,9 @@ fn q(r: Rect, x: f32, y: f32) -> Pos2 {
 }
 
 pub fn draw(painter: &Painter, r: Rect, g: Glyph, color: Color32) {
+    if crate::ui::slate_icons::draw(painter, r, &format!("glyph.{g:?}"), color) {
+        return;
+    }
     use Glyph::*;
     let k = r.width() / 16.0;
     let s = Stroke::new(1.1 * k, color);

@@ -14,6 +14,10 @@ const NEWS: &[(&str, &str)] = &[
 ];
 
 pub fn welcome_screen(app: &mut App, ui: &mut Ui) {
+    if crate::theme::is_slate() {
+        slate_welcome(app, ui);
+        return;
+    }
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         ui.add_space(24.0);
@@ -48,12 +52,163 @@ pub fn welcome_screen(app: &mut App, ui: &mut Ui) {
     }
 }
 
+/// The Slate look's Welcome Screen: a column on the left with the name
+/// and the pages (the open one in the accent colour), the page on the
+/// right on the desktop's slate.
+fn slate_welcome(app: &mut App, ui: &mut Ui) {
+    let full = ui.max_rect();
+    let nav_w = 248.0;
+    let nav = egui::Rect::from_min_max(full.min, egui::pos2(full.left() + nav_w, full.bottom()));
+    let page = egui::Rect::from_min_max(egui::pos2(nav.right(), full.top()), full.max);
+    let painter = ui.painter().clone();
+    painter.rect_filled(nav, 0.0, Tokens::panel());
+    painter.rect_filled(page, 0.0, Tokens::panel_dark());
+    painter.vline(
+        nav.right() - 0.5,
+        nav.y_range(),
+        egui::Stroke::new(1.0, Tokens::border()),
+    );
+    // The name: the icon on an accent tile, the name and the version.
+    let tile = egui::Rect::from_min_size(nav.min + egui::vec2(16.0, 18.0), egui::vec2(40.0, 40.0));
+    painter.rect_filled(tile, 6.0, Tokens::ACCENT);
+    let icon = crate::ui::brand::icon(ui.ctx());
+    crate::ui::brand::paint_icon(&painter, icon.as_ref(), tile.shrink(7.0));
+    painter.text(
+        egui::pos2(tile.right() + 10.0, tile.top() + 11.0),
+        egui::Align2::LEFT_CENTER,
+        "TraceDraw",
+        crate::theme::bold(17.0),
+        Tokens::text(),
+    );
+    painter.text(
+        egui::pos2(tile.right() + 10.0, tile.top() + 30.0),
+        egui::Align2::LEFT_CENTER,
+        format!("v{}", env!("CARGO_PKG_VERSION")),
+        egui::FontId::monospace(11.0),
+        Tokens::text_dim(),
+    );
+    let mut y = tile.bottom() + 22.0;
+    for (tab, key, icon) in [
+        (
+            WelcomeTab::GetStarted,
+            "welcome.get_started",
+            "ui.GetStarted",
+        ),
+        (WelcomeTab::Workspace, "welcome.workspace", "ui.Workspace"),
+        (WelcomeTab::News, "welcome.whats_new", "ui.News"),
+        (WelcomeTab::Learn, "welcome.learn", "ui.Learn"),
+        (WelcomeTab::Templates, "welcome.templates", "ui.Templates"),
+    ] {
+        let row = egui::Rect::from_min_size(
+            egui::pos2(nav.left() + 10.0, y),
+            egui::vec2(nav_w - 20.0, 34.0),
+        );
+        let resp = ui.interact(
+            row,
+            egui::Id::new(("welcome_nav", key)),
+            egui::Sense::click(),
+        );
+        let active = app.welcome_tab == tab;
+        let ink = if active {
+            egui::Color32::WHITE
+        } else {
+            Tokens::text()
+        };
+        if active {
+            painter.rect_filled(row, 4.0, Tokens::ACCENT);
+        } else if resp.hovered() {
+            painter.rect_filled(row, 4.0, Tokens::tool_hover());
+        }
+        crate::ui::slate_icons::draw(
+            &painter,
+            egui::Rect::from_center_size(
+                egui::pos2(row.left() + 18.0, row.center().y),
+                egui::vec2(17.0, 17.0),
+            ),
+            icon,
+            if active { ink } else { Tokens::icon() },
+        );
+        painter.text(
+            egui::pos2(row.left() + 38.0, row.center().y),
+            egui::Align2::LEFT_CENTER,
+            tr(key),
+            if active {
+                crate::theme::bold(14.0)
+            } else {
+                egui::FontId::proportional(14.0)
+            },
+            ink,
+        );
+        if active {
+            crate::ui::slate_icons::draw(
+                &painter,
+                egui::Rect::from_center_size(
+                    egui::pos2(row.right() - 14.0, row.center().y),
+                    egui::vec2(14.0, 14.0),
+                ),
+                "ui.Chevron",
+                ink,
+            );
+        }
+        if resp.clicked() {
+            app.welcome_tab = tab;
+        }
+        y += 38.0;
+    }
+    // The page: its title, then what it holds.
+    let inner = page.shrink2(egui::vec2(28.0, 22.0));
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(inner));
+    let title = match app.welcome_tab {
+        WelcomeTab::GetStarted => "welcome.get_started",
+        WelcomeTab::Workspace => "welcome.workspace",
+        WelcomeTab::News => "welcome.whats_new",
+        WelcomeTab::Learn => "welcome.learn",
+        WelcomeTab::Templates => "welcome.templates",
+    };
+    child.label(
+        egui::RichText::new(tr(title))
+            .font(crate::theme::bold(22.0))
+            .color(Tokens::text()),
+    );
+    child.add_space(16.0);
+    // The pages keep their own left margin; this page has its own.
+    child.spacing_mut().indent = 0.0;
+    egui::ScrollArea::vertical()
+        .id_salt("welcome_page")
+        .show(&mut child, |ui| match app.welcome_tab {
+            WelcomeTab::GetStarted => get_started(app, ui),
+            WelcomeTab::Workspace => workspace(app, ui),
+            WelcomeTab::News => news(ui),
+            WelcomeTab::Learn => learn(ui),
+            WelcomeTab::Templates => templates(app, ui),
+        });
+    ui.allocate_rect(full, egui::Sense::hover());
+}
+
 fn big_button(ui: &mut Ui, icon: icons::Action, title: String, subtitle: String) -> bool {
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(240.0, 64.0), egui::Sense::click());
-    let bg = if resp.hovered() {
+    // Slate look: New Document is the accent button, the others white.
+    let primary = crate::theme::is_slate() && icon == icons::Action::New;
+    let bg = if primary && resp.hovered() {
+        Tokens::ACCENT.gamma_multiply(0.85)
+    } else if primary {
+        Tokens::ACCENT
+    } else if resp.hovered() {
         Tokens::tool_hover()
+    } else if crate::theme::is_slate() {
+        Tokens::field()
     } else {
         Tokens::panel()
+    };
+    let ink = if primary {
+        egui::Color32::WHITE
+    } else {
+        Tokens::text()
+    };
+    let ink_dim = if primary {
+        egui::Color32::from_rgb(0xDB, 0xE3, 0xFF)
+    } else {
+        Tokens::text_dim()
     };
     let painter = ui.painter();
     painter.rect_filled(rect, 4.0, bg);
@@ -67,7 +222,12 @@ fn big_button(ui: &mut Ui, icon: icons::Action, title: String, subtitle: String)
         egui::pos2(rect.left() + 32.0, rect.center().y),
         egui::vec2(28.0, 28.0),
     );
-    icons::draw_action(painter, icon_rect, icon, Tokens::ACCENT);
+    icons::draw_action(
+        painter,
+        icon_rect,
+        icon,
+        if primary { ink } else { Tokens::ACCENT },
+    );
     let text_x = rect.left() + 64.0;
     painter.text(
         egui::pos2(
@@ -77,7 +237,7 @@ fn big_button(ui: &mut Ui, icon: icons::Action, title: String, subtitle: String)
         egui::Align2::LEFT_CENTER,
         title,
         egui::FontId::proportional(14.0),
-        Tokens::text(),
+        ink,
     );
     if !subtitle.is_empty() {
         painter.text(
@@ -85,7 +245,7 @@ fn big_button(ui: &mut Ui, icon: icons::Action, title: String, subtitle: String)
             egui::Align2::LEFT_CENTER,
             subtitle,
             egui::FontId::proportional(11.0),
-            Tokens::text_dim(),
+            ink_dim,
         );
     }
     resp.clicked()
